@@ -213,24 +213,6 @@ ion-toolbar {
   transform: translateX(4px); /* Mueve a la derecha del centro */
 }
 
-.crosshair-icon {
-  color: #ff0000;
-  font-weight: bold;
-  font-size: 30px;
-  text-align: center;
-  line-height: 30px;
-  text-shadow: 0 0 3px white;
-}
-
-.distance-tooltip {
-  background-color: rgba(0, 0, 0, 0.7);
-  border: none;
-  box-shadow: none;
-  color: white;
-  font-weight: bold;
-  font-family: monospace;
-}
-
 .initial-spinner-container {
   position: fixed;
   top: 0;
@@ -263,15 +245,6 @@ ion-toolbar {
     --color: white;
     --box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   }
-}
-::ng-deep .vertex-tooltip {
-  background-color: #0DA642;
-  border: 1px solid #fff;
-  color: #fff;
-  font-weight: bold;
-  padding: 4px 8px;
-  border-radius: 4px;
-  box-shadow: none;
 }
 .edit-mode-btn-wrapper {
   top: 210px; /* 160px + 50px */
@@ -313,31 +286,9 @@ ion-toolbar {
   transition: background-color 0.3s ease;
 }
 
-.draw-walk-btn {
-  bottom: 250px; // Posición base
-  background-color: #0DA642; // Restaurado a tu color azul
-  &.active {
-    background-color: #eb445a; // Color danger (rojo)
-  }
-}
-
-.draw-line-btn {
-  bottom: 300px; // 250px (base) + 40px (alto botón) + 10px (gap)
-  background-color: #0DA642; // Restaurado a tu color azul
-  &.active {
-    background-color: #eb445a; // Color danger (rojo)
-  }
-}
-
 .add-point-btn {
   // Se posiciona encima del botón de dibujar polígono, en el mismo lugar que el botón de "añadir vértice"
-  bottom: 350px; // 300px (línea) + 40px + 10px
-  background-color: #0DA642; // Restaurado a tu color azul
-}
-
-.add-vertex-btn {
-  // Aparece encima del botón de detener cuando se está dibujando
-  bottom: 350px; // Posición más alta para no solapar con ningún botón de "stop"
+  bottom: 250px;
   background-color: #0DA642; // Restaurado a tu color azul
 }
 

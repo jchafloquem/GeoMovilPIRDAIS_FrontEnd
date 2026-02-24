@@ -180,20 +180,8 @@
     </ion-fab>
 
     <!-- Botones de acción (estilo manual) -->
-    <!-- Botón para añadir un vértice mientras se dibuja -->
-    <div *ngIf="isDrawingPolygon || isDrawingLine" class="action-btn add-vertex-btn" (click)="addPolygonPoint()" title="Añadir Vértice">
-      <ion-icon name="add-circle-outline"></ion-icon>
-    </div>
-    <!-- Botón para iniciar/detener el dibujo de LÍNEA -->
-    <div *ngIf="canDrawLines && !isDrawingPolygon" class="action-btn draw-line-btn" (click)="toggleLineDrawing()" [class.active]="isDrawingLine" title="Dibujar Línea Caminando">
-      <ion-icon [name]="isDrawingLine ? 'stop-circle-outline' : 'analytics-outline'"></ion-icon>
-    </div>
-    <!-- Botón para iniciar/detener el dibujo de POLÍGONO -->
-    <div *ngIf="canDrawPolygons && !isDrawingLine" class="action-btn draw-walk-btn" (click)="toggleDrawingMode()" [class.active]="isDrawingPolygon" title="Dibujar Polígono Caminando">
-      <ion-icon [name]="isDrawingPolygon ? 'stop-circle-outline' : 'walk-outline'"></ion-icon>
-    </div>
-    <!-- Botón para añadir un PUNTO en la ubicación actual (se oculta durante el dibujo) -->
-    <div *ngIf="canDrawPoints && !isDrawingPolygon && !isDrawingLine" class="action-btn add-point-btn" (click)="addPointAtCurrentLocation()" title="Añadir Punto en mi Ubicación">
+    <!-- Botón para añadir un PUNTO en la ubicación actual -->
+    <div *ngIf="canDrawPoints" class="action-btn add-point-btn" (click)="addPointAtCurrentLocation()" title="Añadir Punto en mi Ubicación">
       <ion-icon name="location-outline"></ion-icon>
     </div>
   </ion-content>

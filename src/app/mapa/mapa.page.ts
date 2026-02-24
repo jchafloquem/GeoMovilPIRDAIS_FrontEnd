@@ -29,7 +29,6 @@ import {
   add,
   addCircleOutline,
   addOutline,
-  analyticsOutline,
   cellularOutline,
   checkmarkCircleOutline,
   cloudUploadOutline,
@@ -48,10 +47,7 @@ import {
   personAddOutline,
   planetOutline,
   removeOutline,
-  shapesOutline,
-  stopCircleOutline,
   trashOutline,
-  walkOutline,
   wifiOutline,
 } from 'ionicons/icons';
 import { exitOutline } from 'ionicons/icons';
@@ -146,12 +142,6 @@ export class MapaPage implements OnDestroy {
   private locationWatchId: string | null = null;
   private satelliteLayer: any | null = null;
   private lightLayer: any | null = null;
-  private vertexMarkers: any | null = null;
-  private walkingPolyline: any | null = null;
-  private crosshairMarker: any | null = null;
-  private watchId: string | null = null;
-  private fixedPathDistance = 0;
-  private polygonVertices: any[] = [];
 
   public isLoading = false;
   public gpsData: any = {
@@ -164,27 +154,15 @@ export class MapaPage implements OnDestroy {
   };
 
   public activeLayer: 'satellite' | 'streets' = 'satellite';
-  public isDrawingPolygon = false;
   public isEditingMode = false;
   public showInitialSpinner = true;
-  public isDrawingLine = false;
   public isOnline = true;
   public networkStatusChanged = false;
   public userRole: 'default' | 'polygon-only' | 'other-crops' | 'point-polygon' = 'default'; // Propiedad para almacenar el rol del usuario
 
   // --- Getters de Permisos basados en Roles ---
-  get canDrawLines(): boolean {
-    // Solo el rol 'default' puede dibujar líneas
-    return this.userRole === 'default';
-  }
-
   get canDrawPoints(): boolean {
     // Los roles 'default' y 'point-polygon' pueden añadir puntos
-    return this.userRole === 'default' || this.userRole === 'point-polygon';
-  }
-
-  get canDrawPolygons(): boolean {
-    // Todos los roles pueden dibujar polígonos
     return true;
   }
   constructor(
@@ -200,7 +178,7 @@ export class MapaPage implements OnDestroy {
     private loadingController: LoadingController,
     private legendDataService: LegendDataService
   ) {
-    addIcons({personAddOutline,listOutline,cloudUploadOutline,downloadOutline,createOutline,globeOutline,trashOutline,informationCircleOutline,exitOutline,mapOutline,planetOutline,cellularOutline,imageOutline,layersOutline,addOutline,removeOutline,locate,addCircleOutline,locationOutline,mailOutline,ellipseOutline,walkOutline,stopCircleOutline,checkmarkCircleOutline,shapesOutline,add,analyticsOutline,wifiOutline});
+    addIcons({personAddOutline,listOutline,cloudUploadOutline,downloadOutline,createOutline,globeOutline,trashOutline,informationCircleOutline,exitOutline,mapOutline,planetOutline,cellularOutline,imageOutline,layersOutline,addOutline,removeOutline,locate,addCircleOutline,locationOutline,mailOutline,ellipseOutline,checkmarkCircleOutline,add,wifiOutline});
   }
 
   async ionViewWillEnter() {
@@ -235,9 +213,6 @@ export class MapaPage implements OnDestroy {
     Network.removeAllListeners();
     if (this.locationWatchId) {
       Geolocation.clearWatch({ id: this.locationWatchId });
-    }
-    if (this.watchId) {
-      Geolocation.clearWatch({ id: this.watchId });
     }
     if (this.map) {
       // Limpiamos el intervalo para evitar fugas de memoria
@@ -415,227 +390,7 @@ export class MapaPage implements OnDestroy {
     return tiles;
   }
 
-  toggleDrawingMode() {
-    if (this.isDrawingLine) {
-      this.registerDataService.showToast('Finalice el dibujo de la línea primero.', 'warning', 'top');
-      return;
-    }
-    this.isDrawingPolygon = !this.isDrawingPolygon;
-
-    if (this.isDrawingPolygon) {
-      this.startDrawingByWalking();
-    } else {
-      this.stopDrawingByWalking();
-    }
-  }
-
-  toggleLineDrawing() {
-    if (this.isDrawingPolygon) {
-      this.registerDataService.showToast('Finalice el dibujo del polígono primero.', 'warning', 'top');
-      return;
-    }
-    this.isDrawingLine = !this.isDrawingLine;
-    if (this.isDrawingLine) {
-      this.startDrawingByWalking(); // Reutilizamos la misma lógica de inicio
-    } else {
-      this.stopDrawingLine();
-    }
-  }
-
-  addPolygonPoint() {
-    if (!this.crosshairMarker) {
-      return;
-    }
-
-    const pointToAdd = this.crosshairMarker.getLatLng();
-    let segmentDistance = 0;
-
-    // Calcular y acumular la distancia del nuevo segmento
-    if (this.polygonVertices.length > 0) {
-      const lastVertex = this.polygonVertices[this.polygonVertices.length - 1];
-      segmentDistance = lastVertex.distanceTo(pointToAdd);
-      this.fixedPathDistance += segmentDistance;
-    }
-
-    // 1. Añadir el vértice a la lista
-    this.polygonVertices.push(pointToAdd);
-
-    // 2. Actualizar la polilínea que une los vértices
-    this.walkingPolyline?.setLatLngs(this.polygonVertices);
-
-    // 3. Añadir un marcador visual en el vértice con una etiqueta
-    const pointNumber = this.polygonVertices.length;
-    const tooltipContent = `Punto: ${pointNumber}<br>Dist: ${segmentDistance.toFixed(1)} m`;
-
-    L.circleMarker(pointToAdd, {
-      color: '#ff0000',
-      radius: 5,
-      weight: 2,
-      fillOpacity: 0.8
-    }).bindTooltip(tooltipContent, {
-      permanent: true,
-      direction: 'right',
-      offset: [10, 0],
-      className: 'vertex-tooltip'
-    }).addTo(this.vertexMarkers);
-  }
-
-  private async startDrawingByWalking() {
-    // Si no tenemos una ubicación GPS inicial, no podemos empezar a dibujar.
-    if (!this.gpsData.lat) {
-      // Revertimos el estado del botón para que el usuario pueda intentarlo de nuevo.
-      this.isDrawingPolygon = false;
-      return;
-    }
-
-    // 1. Limpiar estado de dibujo anterior
-    this.polygonVertices = [];
-    this.vertexMarkers.clearLayers();
-    this.fixedPathDistance = 0;
-    if (this.walkingPolyline) {
-      this.map.removeLayer(this.walkingPolyline);
-    }
-
-    // 2. Inicializar nueva polilínea para los bordes
-    this.walkingPolyline = L.polyline([], { color: '#ff0000', weight: 3 }).addTo(this.map);
-
-    // 3. Opciones para el seguimiento GPS
-    const watchOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
-    };
-
-    this.isLoading = true;
-    try {
-      // 4. Usar la última posición conocida del GPS como punto de partida.
-      // Esto evita la espera y el posible timeout de getCurrentPosition.
-      const initialPoint = L.latLng(this.gpsData.lat, this.gpsData.lng);
-
-      // 5. Crear o mover la "mira" (crosshair) a esa posición inicial
-      if (!this.crosshairMarker) {
-        const crosshairIcon = L.divIcon({
-          className: 'crosshair-icon',
-          html: '+',
-          iconSize: [30, 30]
-        });
-        this.crosshairMarker = L.marker(initialPoint, { icon: crosshairIcon, interactive: false }).addTo(this.map);
-        this.crosshairMarker.bindTooltip('0.0 m', {
-          permanent: true,
-          direction: 'top',
-          offset: L.point(0, -15),
-          className: 'distance-tooltip'
-        }).openTooltip();
-      } else {
-        this.crosshairMarker.setLatLng(initialPoint);
-      }
-      this.map.panTo(initialPoint);
-
-      // 6. Ahora, iniciar el seguimiento continuo para actualizar la posición de la mira
-      this.watchId = await Geolocation.watchPosition(watchOptions, (position, err) => {
-        if (err || !position) {
-          this.toggleDrawingMode(); // Detener si hay un error de GPS
-          return;
-        }
-
-        const newPoint = L.latLng(position.coords.latitude, position.coords.longitude);
-
-        if (this.crosshairMarker) {
-          this.crosshairMarker.setLatLng(newPoint);
-
-          // Calcular distancia en tiempo real y actualizar tooltip
-          let liveDistance = 0;
-          if (this.polygonVertices.length > 0) {
-            const lastVertex = this.polygonVertices[this.polygonVertices.length - 1];
-            liveDistance = lastVertex.distanceTo(newPoint);
-          }
-          const totalDistance = this.fixedPathDistance + liveDistance;
-          this.crosshairMarker.setTooltipContent(`${totalDistance.toFixed(1)} m`);
-        }
-        this.map.panTo(newPoint);
-      });
-    } catch (e) {
-      // Si falla (ej. permisos denegados), revertir el estado y limpiar
-      if (this.isDrawingPolygon) {
-        this.toggleDrawingMode();
-      }
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  private stopDrawingByWalking() {
-    // 1. Detener seguimiento de ubicación
-    if (this.watchId) {
-      Geolocation.clearWatch({ id: this.watchId });
-      this.watchId = null;
-    }
-
-    // 2. Convertir a polígono si es válido
-    if (this.polygonVertices.length > 2) {
-      const polygon = L.polygon(this.polygonVertices, { color: '#ff0000', fillColor: '#ff0000', fillOpacity: 0.2, weight: 3 });
-      this.drawnItems.addLayer(polygon);
-
-      // Actualizar las coordenadas GPS con la última posición conocida antes de abrir el modal
-      if (this.crosshairMarker) {
-        const lastKnownPosition = this.crosshairMarker.getLatLng();
-        this.gpsData.lat = lastKnownPosition.lat;
-        this.gpsData.lng = lastKnownPosition.lng;
-      }
-      this.registerDataService.createDraftAndNavigate(polygon.toGeoJSON());
-    } else {
-      this.registerDataService.showToast('Dibujo cancelado: se necesitan al menos 3 puntos.', 'warning', 'top');
-    }
-
-    // 3. Limpiar elementos temporales del mapa
-    if (this.walkingPolyline) {
-      this.map.removeLayer(this.walkingPolyline);
-      this.walkingPolyline = null;
-    }
-    if (this.crosshairMarker) {
-      this.map.removeLayer(this.crosshairMarker);
-      this.crosshairMarker = null;
-    }
-    this.vertexMarkers.clearLayers();
-    this.polygonVertices = []; // Resetear para la próxima vez
-  }
-
-  private stopDrawingLine() {
-    // 1. Detener seguimiento de ubicación
-    if (this.watchId) {
-      Geolocation.clearWatch({ id: this.watchId });
-      this.watchId = null;
-    }
-
-    // 2. Convertir a línea si es válido (al menos 2 puntos)
-    if (this.polygonVertices.length > 1) {
-      const line = L.polyline(this.polygonVertices, { color: '#ff0000', weight: 3 });
-      this.drawnItems.addLayer(line);
-
-      // Actualizar las coordenadas GPS con la última posición conocida antes de abrir el modal
-      if (this.crosshairMarker) {
-        const lastKnownPosition = this.crosshairMarker.getLatLng();
-        this.gpsData.lat = lastKnownPosition.lat;
-        this.gpsData.lng = lastKnownPosition.lng;
-      }
-      this.registerDataService.createDraftAndNavigate(line.toGeoJSON());
-    } else {
-      this.registerDataService.showToast('Dibujo cancelado: se necesitan al menos 2 puntos para una línea.', 'warning', 'top');
-    }
-
-    // 3. Limpiar elementos temporales del mapa
-    if (this.walkingPolyline) { this.map.removeLayer(this.walkingPolyline); this.walkingPolyline = null; }
-    if (this.crosshairMarker) { this.map.removeLayer(this.crosshairMarker); this.crosshairMarker = null; }
-    this.vertexMarkers.clearLayers();
-    this.polygonVertices = [];
-  }
-
   async addPointAtCurrentLocation() {
-    if (this.isDrawingPolygon || this.isDrawingLine) {
-      this.registerDataService.showToast('Termine de dibujar el polígono antes de añadir un punto.', 'warning', 'top');
-      return;
-    }
-
     if (!this.gpsData.lat) {
       this.registerDataService.showToast('Ubicación GPS no disponible. Intente centrar el mapa primero.', 'warning', 'top');
       return;
@@ -672,19 +427,6 @@ export class MapaPage implements OnDestroy {
 
   async confirmAndExitApp() {
     // 1. Verificar si hay un dibujo en curso
-    if (this.isDrawingPolygon || this.isDrawingLine) {
-      const alert = await this.alertController.create({
-        header: 'Dibujo en Curso',
-        message: 'Tiene un dibujo en curso. Si sale, el progreso se perderá. ¿Está seguro de que desea salir?',
-        buttons: [
-          { text: 'Cancelar', role: 'cancel' },
-          { text: 'Salir', handler: () => App.exitApp() }
-        ]
-      });
-      await alert.present();
-      return;
-    }
-
     // 2. Verificar si hay registros pendientes de sincronización
     const hasPending = await this.registerDataService.hasPendingSyncRecords();
     if (hasPending) {
@@ -1217,30 +959,6 @@ export class MapaPage implements OnDestroy {
     // Inicializamos el FeatureGroup para los elementos dibujados
     this.drawnItems = new L.FeatureGroup();
     this.drawnItems.addTo(map);
-
-    // Inicializamos el FeatureGroup para los marcadores de vértices
-    this.vertexMarkers = new L.FeatureGroup();
-    this.vertexMarkers.addTo(map);
-
-    // Creamos un control para editar y borrar, pero no para dibujar nuevas formas.
-    const editControl = new L.Control.Draw({
-      position: 'topright',
-      edit: {
-        featureGroup: this.drawnItems,
-        remove: false,
-      },
-      draw: false // Desactivamos las herramientas de dibujo manual
-    });
-
-
-    // Eventos para los elementos dibujados (útil si se editan/borran con leaflet-draw)
-    map.on(L.Draw.Event.CREATED, (event: any) => {
-      const layer = event.layer;
-      this.drawnItems?.addLayer(layer);
-    });
-
-    map.on(L.Draw.Event.DELETED, (event: any) => {
-    });
 
     // Cargamos y añadimos el límite de Departamentos desde el archivo GeoJSON
     this.http.get('assets/data/departamentos.geojson').subscribe((data: any) => {

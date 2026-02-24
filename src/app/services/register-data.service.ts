@@ -867,9 +867,6 @@ export class RegisterDataService {
    * @param type El tipo de geometría (e.g., 'Polygon', 'Point').
    */
   private getIconForType(type: string): string {
-    if (type.includes('Polygon')) return 'shapes-outline';
-    if (type.includes('LineString')) return 'analytics-outline';
-    if (type.includes('Point')) return 'location-outline';
     return 'help-circle-outline';
   }
 
@@ -891,24 +888,14 @@ export class RegisterDataService {
    * @param geojson El objeto GeoJSON de la nueva geometría.
    */
   public async createDraftAndNavigate(geojson: any) {
-    if (!geojson || !geojson.geometry) { // No hay errores aquí, pero es una buena práctica de validación.
-      await this.showToast('Error al crear la geometría. Inténtalo de nuevo.', 'danger');
+    if (!geojson || !geojson.geometry || !geojson.geometry.type.toLowerCase().includes('point')) {
+      await this.showToast('Error al crear la geometría. Solo se permite la creación de puntos.', 'danger');
       return;
     }
 
-    const geometryType = geojson.geometry.type.toLowerCase();
-    let keyPrefix = 'polygon';
-    if (geometryType.includes('point')) keyPrefix = 'point';
-    else if (geometryType.includes('linestring')) keyPrefix = 'linestring';
-
+    // A partir de ahora, solo se generan puntos.
+    const keyPrefix = 'point';
     const key = `${keyPrefix}_${new Date().getTime()}`;
-
-    // Asignamos propiedades mínimas para el borrador
-    geojson.properties = {
-      NOMBRE_COMPLETO: 'NUEVO REGISTRO (PENDIENTE)',
-      FECHA_CREACION_REGISTRO: new Date().toISOString(),
-      status: 'draft', // Marcamos como borrador
-    };
 
     await Preferences.set({ key, value: JSON.stringify(geojson) });
     this.navCtrl.navigateForward(`/mapa/registerdata/${key}`);
