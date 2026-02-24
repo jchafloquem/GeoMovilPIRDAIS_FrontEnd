@@ -17,7 +17,7 @@ Aplicacion Móvil de la Sub Direccion de Monitoreo
 
 ## ⚙️ Instalación
 ```bash
-git clone https://github.com/usuario/repositorio.git
-cd repositorio
+git clone https://github.com/jchafloquem/GeoMovilPIRDAIS_FrontEnd.git
+cd GeoMovilPIRDAIS_FrontEnd
 npm install
 ionic serve
